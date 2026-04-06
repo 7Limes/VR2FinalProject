@@ -1,51 +1,79 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 public class VRSlider : MonoBehaviour
 {
-    private InputAction action;
+    [SerializeField] private XRSimpleInteractable interactable;
 
-    private bool canDrag = false;
+    [SerializeField] private GameObject thumbVisual;
+
+    [SerializeField] private Transform lowerBound;
+    [SerializeField] private Transform upperBound;
+
+    [SerializeField] private Vector2 valueRange = new Vector2(0, 1);
+    [SerializeField] private float currentValue = 0.5f;
+
+    [SerializeField] private float notchInterval = 0.0f;
+
+
+    private IXRSelectInteractor currentInteractor = null;
 
     public void OnSelectEnter()
     {
-        Debug.Log("Entered");
-        canDrag = true;
+        currentInteractor = interactable.firstInteractorSelecting;
     }
 
     public void OnSelectExit()
     {
-        Debug.Log("Exited");
-        canDrag = false;
+        currentInteractor = null;
     }
 
-    public void OnActivate(InputAction.CallbackContext ctx)
+    public float getValue()
     {
-        if (canDrag)
-        {
-            Debug.Log("activated");
-        }
+        return currentValue;
     }
-
-    public void OnDeactivate(InputAction.CallbackContext ctx)
-    {
-        if (canDrag)
-        {
-            Debug.Log("deactivated");
-        }
-    }
-
 
     void Start()
     {
-        action = InputSystem.actions.FindAction("ActivateVRSlider");
-        action.performed += OnActivate;
-        action.canceled += OnDeactivate;
+        UpdateThumb();
     }
 
-    // Update is called once per frame
     void Update()
     {
-        
+        if (currentInteractor != null)
+        {
+            float t = Mathf.Clamp01(Vec3InverseLerp(lowerBound.position, upperBound.position, currentInteractor.transform.position));
+
+            // Update current value
+            currentValue = Mathf.Lerp(valueRange.x, valueRange.y, t);
+
+            // Round to nearest notch if applicable
+            if (notchInterval > 0)
+            {
+                currentValue = Mathf.Round(currentValue / notchInterval) * notchInterval;
+                currentValue = Mathf.Clamp(currentValue, valueRange.x, valueRange.y);
+            }
+
+            UpdateThumb();
+        }
+    }
+
+    private void UpdateThumb()
+    {
+        float t = Mathf.InverseLerp(valueRange.x, valueRange.y, currentValue);
+
+        // Update thumb position
+        Vector3 thumbPosition = Vector3.Lerp(lowerBound.position, upperBound.position, t);
+        thumbPosition.y = thumbVisual.transform.position.y;
+        thumbVisual.transform.position = thumbPosition;
+    }
+
+    private static float Vec3InverseLerp(Vector3 a, Vector3 b, Vector3 value)
+    {
+        Vector3 AB = b - a;
+        Vector3 AV = value - a;
+        return Vector3.Dot(AV, AB) / Vector3.Dot(AB, AB);
     }
 }
