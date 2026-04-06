@@ -49,31 +49,18 @@ public class NPCMovement : MonoBehaviour
         moveSpeed += Random.Range(-speedVariation, speedVariation);
         agent.avoidancePriority = Random.Range(1, 100);
         currentWanderTimer = Random.Range(0f, wanderChangeInterval);
+        agent.Warp(transform.position);
     }
 
     void Update()
     {
-        // Fallback: If they fall through the floor and miss the trigger
         if (transform.position.y < -20f)
         {
             Respawn();
         }
 
-        if (!isReadyToMove)
-        {
-            timer += Time.deltaTime;
-            if (timer >= startDelay)
-            {
-                isReadyToMove = true;
-                agent.Warp(transform.position);
-
-                if (goal != null && agent.isOnNavMesh)
-                {
-                    agent.SetDestination(goal.position);
-                }
-            }
-            return;
-        }
+        // --- NEW: wait for the Race Manager before thinking ---
+        if (!RaceManager.Instance.raceHasStarted) return;
 
         if (agent.isOnNavMesh)
         {
@@ -89,7 +76,8 @@ public class NPCMovement : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (!isReadyToMove) return;
+        // --- NEW: wait for the Race Manager before moving ---
+        if (!RaceManager.Instance.raceHasStarted) return;
 
         if (agent.isOnNavMesh)
         {

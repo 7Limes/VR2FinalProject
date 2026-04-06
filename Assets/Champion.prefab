@@ -309,5 +309,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   smoothingIterations: 10
-  heightOffset: 0.2
-  maxDrawDistance: 7
+  heightOffset: 2
+  maxDrawDistance: 100

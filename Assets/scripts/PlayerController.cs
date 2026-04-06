@@ -52,6 +52,15 @@ public class PlayerController : MonoBehaviour
 
             GameObject newNPC = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
 
+            if (i == 0 && championPrefab != null)
+            {
+                newNPC.name = "Champion";
+            }
+            else
+            {
+                newNPC.name = "Racer " + i;
+            }
+
             NPCMovement movementScript = newNPC.GetComponent<NPCMovement>();
             if (movementScript != null)
             {
