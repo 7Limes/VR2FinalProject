@@ -1,13 +1,21 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class PlayerController : MonoBehaviour
 {
     [Header("NPC Spawning")]
     public GameObject npcPrefab;
-    public GameObject championPrefab; // <-- Add this slot for your new Champion Prefab!
+    public GameObject championPrefab;
     public int numberOfNPCs = 12;
     public Transform npcSpawnCenter;
     public Transform goalPoint;
+
+    [Header("Appearance Settings")]
+    [Tooltip("Drag your different colored materials here. Make sure you have at least as many materials as regular NPCs!")]
+    public List<Material> racerMaterials;
+
+    // This is our "deck of cards" we will draw from and discard
+    private List<Material> availableMaterialsPool;
 
     [Header("Obstacle Spawning")]
     public GameObject obstaclePrefab;
@@ -15,6 +23,9 @@ public class PlayerController : MonoBehaviour
 
     void Start()
     {
+        // Copy the materials into our temporary pool so we don't delete the originals from the Inspector permanently
+        availableMaterialsPool = new List<Material>(racerMaterials);
+
         SpawnNPCs();
     }
 
@@ -39,11 +50,13 @@ public class PlayerController : MonoBehaviour
             Vector3 spawnPos = npcSpawnCenter.position + randomOffset;
 
             GameObject prefabToSpawn;
+            bool isChampion = false;
 
-            // If it's the very first NPC we are spawning, make it the Champion
+            // Check if it's the Champion
             if (i == 0 && championPrefab != null)
             {
                 prefabToSpawn = championPrefab;
+                isChampion = true;
             }
             else
             {
@@ -52,20 +65,49 @@ public class PlayerController : MonoBehaviour
 
             GameObject newNPC = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
 
-            if (i == 0 && championPrefab != null)
-            {
-                newNPC.name = "Champion";
-            }
-            else
-            {
-                newNPC.name = "Racer " + i;
-            }
+            // Set clean names for the Leaderboard
+            newNPC.name = isChampion ? "Champion" : "Racer " + i;
 
             NPCMovement movementScript = newNPC.GetComponent<NPCMovement>();
             if (movementScript != null)
             {
                 movementScript.goal = goalPoint;
             }
+
+            // --- NEW: Assign Unique Random Material ---
+            // We only randomize regular racers so the Champion keeps its special color
+            if (!isChampion)
+            {
+                AssignUniqueMaterial(newNPC);
+            }
+        }
+    }
+
+    void AssignUniqueMaterial(GameObject npc)
+    {
+        // Make sure we still have colors left in the pool
+        if (availableMaterialsPool.Count > 0)
+        {
+            // Pick a random index from whatever is left
+            int randomIndex = Random.Range(0, availableMaterialsPool.Count);
+
+            // Grab the material at that index
+            Material selectedMaterial = availableMaterialsPool[randomIndex];
+
+            // Apply it to the capsule's MeshRenderer
+            MeshRenderer renderer = npc.GetComponentInChildren<MeshRenderer>();
+            if (renderer != null)
+            {
+                renderer.material = selectedMaterial;
+            }
+
+            // Discard it from the pool so no one else can draw this color
+            availableMaterialsPool.RemoveAt(randomIndex);
+        }
+        else
+        {
+            // If you spawn 12 NPCs but only put 5 materials in the list, it will warn you and keep the default color
+            Debug.LogWarning("Not enough materials in the pool for all NPCs! " + npc.name + " will use the default color.");
         }
     }
 
@@ -75,7 +117,6 @@ public class PlayerController : MonoBehaviour
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
-        // Checking for "Ground" or "Track" based on your previous setup
         if (Physics.Raycast(ray, out hit, Mathf.Infinity, LayerMask.GetMask("Ground", "Track")))
         {
             Vector3 spawnPosition = hit.point + (Vector3.up * dropHeight);
@@ -89,7 +130,6 @@ public class PlayerController : MonoBehaviour
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
-        // Move the goal to where the player right-clicks
         if (Physics.Raycast(ray, out hit, Mathf.Infinity, LayerMask.GetMask("Ground", "Track")))
         {
             goalPoint.position = hit.point;

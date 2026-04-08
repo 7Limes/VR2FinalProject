@@ -2,15 +2,22 @@ using UnityEngine;
 
 public class GoalLine : MonoBehaviour
 {
+    // Prevent NPCs from triggering the line multiple times in one second
+    // (Helps if they get stuck or jitter on the line)
+    private float cooldown = 1.5f;
+
     void OnTriggerEnter(Collider other)
     {
-        // check if the object crossing the line has an NPCMovement script
-        if (other.GetComponent<NPCMovement>() != null)
-        {
-            // send the name of the gameobject to the leaderboard
-            RaceManager.Instance.RecordFinisher(other.gameObject.name);
+        NPCMovement racer = other.GetComponent<NPCMovement>();
 
-            // optional: you could add logic here to make the npc cheer or stop moving
+        if (racer != null && !racer.isFinished)
+        {
+            Color racerColor = Color.white;
+            MeshRenderer renderer = other.GetComponentInChildren<MeshRenderer>();
+            if (renderer != null) racerColor = renderer.material.color;
+
+            // Tell the manager this racer crossed the line
+            RaceManager.Instance.PassCheckPoint(racer, racerColor);
         }
     }
 }

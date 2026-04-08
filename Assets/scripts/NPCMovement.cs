@@ -29,6 +29,11 @@ public class NPCMovement : MonoBehaviour
     public float dodgeForce = 15f;
     public LayerMask obstacleLayer;
 
+    [Header("Race Progress")]
+    public int currentLap = 0; // Starts at 0, becomes 1 when race starts
+    public bool isFinished = false;
+    public float distanceToGoal; // Used for real-time ranking
+
     private NavMeshAgent agent;
     private Rigidbody rb;
 
@@ -66,6 +71,7 @@ public class NPCMovement : MonoBehaviour
         {
             agent.speed = moveSpeed;
             agent.nextPosition = transform.position;
+            distanceToGoal = agent.remainingDistance;
 
             if (goal != null && agent.destination != goal.position)
             {
