@@ -8,6 +8,10 @@ public class ColorChangeCube : MonoBehaviour
     
     public void UpdateColor()
     {
+        if (cubeRenderer == null)
+        {
+            cubeRenderer = GetComponent<Renderer>();
+        }
         if (colorPicker != null)
         {
             Color newColor = colorPicker.getColor();
@@ -17,7 +21,6 @@ public class ColorChangeCube : MonoBehaviour
 
     private void Start()
     {
-        cubeRenderer = GetComponent<Renderer>();
         UpdateColor();
     }
 }
