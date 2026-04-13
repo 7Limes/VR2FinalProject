@@ -18,8 +18,11 @@ public class VRSlider : MonoBehaviour
 
     [SerializeField] private float notchInterval = 0.0f;
 
+    [SerializeField] private float thumbMoveDuration = 0.05f;
+
     [SerializeField] private UnityEvent changeEvent = null;
 
+    private Vector3 thumbTargetPosition;
 
     private IXRSelectInteractor currentInteractor = null;
 
@@ -40,6 +43,7 @@ public class VRSlider : MonoBehaviour
 
     void Start()
     {
+        thumbTargetPosition = thumbVisual.transform.localPosition;
         UpdateThumb();
     }
 
@@ -67,6 +71,12 @@ public class VRSlider : MonoBehaviour
 
             UpdateThumb();
         }
+        
+        float targetDistance = Vector3.Distance(thumbVisual.transform.localPosition, thumbTargetPosition);
+        if (targetDistance > 0.001f)
+        {
+            thumbVisual.transform.localPosition = Vector3.MoveTowards(thumbVisual.transform.localPosition, thumbTargetPosition, targetDistance / thumbMoveDuration * Time.deltaTime);
+        }
     }
 
     private void UpdateThumb()
@@ -76,7 +86,8 @@ public class VRSlider : MonoBehaviour
         // Update thumb position
         Vector3 thumbPosition = Vector3.Lerp(lowerBound.localPosition, upperBound.localPosition, t);
         thumbPosition.y = thumbVisual.transform.localPosition.y;
-        thumbVisual.transform.localPosition = thumbPosition;
+        thumbTargetPosition = thumbPosition;
+        //thumbMoveTimer = 0;
     }
 
     private static float Vec3InverseLerp(Vector3 a, Vector3 b, Vector3 value)
