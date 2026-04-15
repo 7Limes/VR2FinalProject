@@ -3,121 +3,309 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq; // Added for sorting
+using System.Linq;
 
 public class RaceManager : MonoBehaviour
 {
     public static RaceManager Instance;
 
     [Header("Race Settings")]
-    public int totalLaps = 3;
     public bool raceHasStarted = false;
 
-    [Header("UI References")]
+    [Header("General UI References")]
     public Image countdownImage;
     public Sprite[] countdownSprites;
     public TextMeshProUGUI resultsText;
     public GameObject resultsPanel;
-    public TextMeshProUGUI championStatusText; // Drag your new UI here
 
-    private List<NPCMovement> allRacers = new List<NPCMovement>();
-    private List<string> finishedNames = new List<string>();
-    private List<string> formattedFinishedResults = new List<string>();
+    [Header("Champion Sprite UI - Rank")]
+    [Tooltip("The Image component displaying the 1st-12th place sprite.")]
+    public Image rankImage;
+    [Tooltip("Array of sprites from 1st to 12th. Index 0 = 1st, Index 11 = 12th.")]
+    public Sprite[] rankSprites;
+
+    [Header("Champion Sprite UI - Lap")]
+    [Tooltip("The parent object holding the 'LAP X/Y' background and numbers (to hide when finished).")]
+    public GameObject lapUIContainer;
+    [Tooltip("The Image component displaying the current lap number (1, 2, 3).")]
+    public Image currentLapImage;
+    [Tooltip("Array of lap numbers. Index 0 = '1', Index 1 = '2', Index 2 = '3'.")]
+    public Sprite[] lapSprites;
+
+    [Header("Countdown Animation Settings")]
+    [Tooltip("How long the sprite takes to fade and shrink in.")]
+    public float animationDuration = 0.5f;
+    [Tooltip("How long the sprite stays fully visible before the next one.")]
+    public float holdDuration = 0.5f;
+    [Tooltip("The starting size of the sprite before it shrinks to normal (1,1,1).")]
+    public Vector3 startScale = new Vector3(1.5f, 1.5f, 1.5f);
+    [Tooltip("How long it takes for the GO! sprite to fade out after the race starts.")]
+    public float goFadeDuration = 0.5f;
+
+    // Populated at race start from CheckpointManager's registry
+    private List<RacerProgress> allRacers = new List<RacerProgress>();
+    private int lastRecordedFinishCount = 0;
 
     void Awake() { Instance = this; }
 
     void Start()
     {
         resultsPanel.SetActive(false);
-        // Find every NPC in the scene and add them to our tracking list
-        allRacers.AddRange(FindObjectsOfType<NPCMovement>());
 
-        if (countdownSprites.Length > 0) StartCoroutine(StartCountdown());
-        else raceHasStarted = true;
+        if (countdownSprites.Length > 0)
+            StartCoroutine(StartCountdown());
+        else
+            BeginRace();
     }
 
     IEnumerator StartCountdown()
     {
-        foreach (Sprite sprite in countdownSprites)
+        countdownImage.enabled = true;
+        int lastIndex = countdownSprites.Length - 1;
+
+        // --- 1. THE NUMBERS ---
+        // Loop through everything EXCEPT the last sprite
+        for (int i = 0; i < lastIndex; i++)
         {
-            countdownImage.sprite = sprite;
-            yield return new WaitForSeconds(1f);
+            countdownImage.sprite = countdownSprites[i];
+
+            float elapsedTime = 0f;
+            Color imgColor = countdownImage.color;
+
+            // Animate the pop, shrink, and fade
+            while (elapsedTime < animationDuration)
+            {
+                elapsedTime += Time.deltaTime;
+                float t = elapsedTime / animationDuration;
+                float easedT = Mathf.SmoothStep(0f, 1f, t);
+
+                imgColor.a = Mathf.Lerp(0f, 1f, easedT);
+                countdownImage.color = imgColor;
+                countdownImage.rectTransform.localScale = Vector3.Lerp(startScale, Vector3.one, easedT);
+
+                yield return null;
+            }
+
+            imgColor.a = 1f;
+            countdownImage.color = imgColor;
+            countdownImage.rectTransform.localScale = Vector3.one;
+
+            yield return new WaitForSeconds(holdDuration);
         }
+
+        // --- 2. THE "GO!" SPRITE ---
+        if (countdownSprites.Length > 0)
+        {
+            countdownImage.sprite = countdownSprites[lastIndex];
+
+            // Instantly display GO! at full size and opacity
+            Color finalColor = countdownImage.color;
+            finalColor.a = 1f;
+            countdownImage.color = finalColor;
+            countdownImage.rectTransform.localScale = Vector3.one;
+
+            // START THE RACE! (NPCs start driving immediately)
+            BeginRace();
+
+            // Optional: Hold the GO! sprite fully visible for a split second before fading
+            yield return new WaitForSeconds(0.2f);
+
+            // --- 3. FADE OUT "GO!" ---
+            float fadeTime = 0f;
+            while (fadeTime < goFadeDuration)
+            {
+                fadeTime += Time.deltaTime;
+                float t = fadeTime / goFadeDuration;
+
+                // Fade alpha from 1 down to 0
+                finalColor.a = Mathf.Lerp(1f, 0f, t);
+                countdownImage.color = finalColor;
+
+                yield return null;
+            }
+        }
+
+        // Clean up
         countdownImage.enabled = false;
+    }
+
+    /// <summary>
+    /// Called once the countdown finishes. Grabs the racer list from
+    /// CheckpointManager, sets everyone to lap 1, and flips raceHasStarted.
+    /// </summary>
+    void BeginRace()
+    {
         raceHasStarted = true;
 
-        // Initialize everyone to Lap 1
-        foreach (var racer in allRacers) racer.currentLap = 1;
+        // Grab all registered racers from the checkpoint system
+        if (CheckpointManager.Instance != null)
+        {
+            allRacers = new List<RacerProgress>(CheckpointManager.Instance.allRacers);
+        }
+
+        // If CheckpointManager hasn't registered them yet (timing), find them directly
+        if (allRacers.Count == 0)
+        {
+            allRacers.AddRange(FindObjectsByType<RacerProgress>(FindObjectsSortMode.None));
+        }
+
+        // Initialize everyone to lap 1 so they don't need to cross
+        // the start/finish line before their first lap counts
+        foreach (var racer in allRacers)
+        {
+            racer.currentLap = 1;
+
+            // Also sync to NPCMovement for any systems reading it there
+            NPCMovement movement = racer.GetComponent<NPCMovement>();
+            if (movement != null)
+            {
+                movement.currentLap = 1;
+            }
+        }
     }
 
     void Update()
     {
-        if (raceHasStarted)
+        if (!raceHasStarted) return;
+
+        // Refresh racer list if it was empty at start (late spawns)
+        if (allRacers.Count == 0 && CheckpointManager.Instance != null)
         {
-            UpdateChampionUI();
+            allRacers = new List<RacerProgress>(CheckpointManager.Instance.allRacers);
         }
+
+        UpdateChampionUI();
+        CheckForNewFinishers();
     }
 
+    /// <summary>
+    /// Sorts all racers by overall race progress and updates
+    /// the Champion's current rank and lap sprites.
+    /// </summary>
     void UpdateChampionUI()
     {
-        // 1. Sort all racers to find placements
-        // Sorting logic: Highest lap first, then shortest distance to goal
+        if (allRacers.Count == 0) return;
+
+        // Sort by race progress: laps + checkpoints + distance to next target
         var sortedRacers = allRacers
-            .OrderByDescending(r => r.currentLap)
-            .ThenBy(r => r.distanceToGoal)
+            .OrderByDescending(r => r.GetRaceProgress())
             .ToList();
 
-        // 2. Find the Champion in that sorted list
-        NPCMovement champion = allRacers.Find(r => r.gameObject.name == "Champion");
+        // Find the Champion
+        RacerProgress champion = allRacers.Find(r => r.gameObject.name == "Champion");
 
         if (champion != null)
         {
-            int rank = sortedRacers.IndexOf(champion) + 1;
-            string suffix = GetOrdinalSuffix(rank);
+            int totalLaps = CheckpointManager.Instance != null
+                ? CheckpointManager.Instance.totalLaps
+                : 3;
 
-            championStatusText.text = $"RANK: {rank}{suffix} | LAP: {champion.currentLap}/{totalLaps}";
+            if (champion.isFinished)
+            {
+                int place = GetFinishPlace(champion);
+                SetRankSprite(place);
 
-            // If champion finishes
-            if (champion.isFinished) championStatusText.text = "FINISHED!";
+                // Hide the lap background & number when the race is over
+                if (lapUIContainer != null) lapUIContainer.SetActive(false);
+            }
+            else
+            {
+                int rank = sortedRacers.IndexOf(champion) + 1;
+                SetRankSprite(rank);
+
+                int displayLap = Mathf.Min(champion.currentLap, totalLaps);
+                SetLapSprite(displayLap);
+
+                // Ensure lap UI is visible while racing
+                if (lapUIContainer != null && !lapUIContainer.activeSelf)
+                {
+                    lapUIContainer.SetActive(true);
+                }
+            }
         }
     }
 
-    public void PassCheckPoint(NPCMovement racer, Color racerColor)
+    /// <summary>
+    /// Updates the Image component with the correct rank sprite.
+    /// </summary>
+    void SetRankSprite(int rank)
     {
-        if (racer.isFinished) return;
-
-        if (racer.currentLap < totalLaps)
+        if (rankImage != null && rankSprites != null && rankSprites.Length > 0)
         {
-            racer.currentLap++;
-            Debug.Log($"{racer.name} started lap {racer.currentLap}");
-        }
-        else
-        {
-            // Racer has finished the final lap!
-            racer.isFinished = true;
-            RecordFinisher(racer.name, racerColor);
+            // Subtract 1 because arrays are 0-indexed (rank 1 = index 0)
+            int spriteIndex = Mathf.Clamp(rank - 1, 0, rankSprites.Length - 1);
+            rankImage.sprite = rankSprites[spriteIndex];
         }
     }
 
-    void RecordFinisher(string racerName, Color racerColor)
+    /// <summary>
+    /// Updates the Image component with the correct lap number sprite.
+    /// </summary>
+    void SetLapSprite(int lap)
     {
-        if (!finishedNames.Contains(racerName))
+        if (currentLapImage != null && lapSprites != null && lapSprites.Length > 0)
         {
-            finishedNames.Add(racerName);
-            string hexColor = ColorUtility.ToHtmlStringRGB(racerColor);
-            formattedFinishedResults.Add($"<color=#{hexColor}>{racerName}</color>");
-            UpdateFinalResultsUI();
+            // Subtract 1 because arrays are 0-indexed (lap 1 = index 0)
+            int spriteIndex = Mathf.Clamp(lap - 1, 0, lapSprites.Length - 1);
+            currentLapImage.sprite = lapSprites[spriteIndex];
         }
     }
 
-    void UpdateFinalResultsUI()
+    /// <summary>
+    /// Polls CheckpointManager.finishOrder for new finishers and
+    /// updates the results panel with their colored names.
+    /// </summary>
+    void CheckForNewFinishers()
     {
+        if (CheckpointManager.Instance == null) return;
+
+        var finishOrder = CheckpointManager.Instance.finishOrder;
+
+        // Only update if new finishers have been recorded
+        if (finishOrder.Count <= lastRecordedFinishCount) return;
+
         resultsPanel.SetActive(true);
-        resultsText.text = "<b>Race Results:</b>\n";
-        for (int i = 0; i < finishedNames.Count; i++)
+
+        string results = "<b>Race Results:</b>\n";
+
+        for (int i = 0; i < finishOrder.Count; i++)
         {
-            resultsText.text += $"{i + 1}{GetOrdinalSuffix(i + 1)}: {formattedFinishedResults[i]}\n";
+            RacerProgress racer = finishOrder[i];
+            string racerName = racer.gameObject.name;
+            Color racerColor = GetRacerColor(racer.gameObject);
+            string hexColor = ColorUtility.ToHtmlStringRGB(racerColor);
+            string suffix = GetOrdinalSuffix(i + 1);
+
+            results += $"{i + 1}{suffix}: <color=#{hexColor}>{racerName}</color>\n";
         }
+
+        resultsText.text = results;
+        lastRecordedFinishCount = finishOrder.Count;
+    }
+
+    /// <summary>
+    /// Gets the finishing position of a racer from CheckpointManager's finish order.
+    /// </summary>
+    int GetFinishPlace(RacerProgress racer)
+    {
+        if (CheckpointManager.Instance == null) return 0;
+
+        int index = CheckpointManager.Instance.finishOrder.IndexOf(racer);
+        return index >= 0 ? index + 1 : 0;
+    }
+
+    /// <summary>
+    /// Reads the racer's color from their MeshRenderer material.
+    /// Falls back to white if no renderer is found.
+    /// </summary>
+    Color GetRacerColor(GameObject racer)
+    {
+        MeshRenderer renderer = racer.GetComponentInChildren<MeshRenderer>();
+        if (renderer != null && renderer.material != null)
+        {
+            return renderer.material.color;
+        }
+        return Color.white;
     }
 
     string GetOrdinalSuffix(int num)

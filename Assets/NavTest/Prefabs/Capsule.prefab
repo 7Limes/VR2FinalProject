@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 6035173068851340826}
   - component: {fileID: 7851513977627522676}
   - component: {fileID: -9526827393962463}
+  - component: {fileID: 3499166660434775498}
   m_Layer: 0
   m_Name: Capsule
   m_TagString: Untagged
@@ -107,7 +108,7 @@ CapsuleCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 2
   m_Radius: 0.5
   m_Height: 2
@@ -122,7 +123,7 @@ NavMeshAgent:
   m_GameObject: {fileID: 6867665592549229238}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 2
+  m_Radius: 1.5
   m_Speed: 20
   m_Acceleration: 10
   avoidancePriority: 50
@@ -148,10 +149,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   goal: {fileID: 0}
-  startDelay: 3
-  moveSpeed: 10
-  rotationSpeed: 15
-  frictionGrip: 5
+  rollForce: 14
+  maxSpeed: 10
+  steeringSharpness: 5
+  obstacleGripMultiplier: 4
+  turnLookAheadDistance: 50
+  brakeAngleThreshold: 30
+  brakingForce: 8
+  anticipationWeight: 0.5
+  turnDriftRelax: 0.3
   speedVariation: 1.5
   wanderForce: 10
   wanderChangeInterval: 1.5
@@ -159,7 +165,17 @@ MonoBehaviour:
   dodgeForce: 15
   obstacleLayer:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 0
+  slopeAssist: 4
+  progressCheckInterval: 2
+  minimumProgressDistance: 1.5
+  redirectAfterFailedChecks: 1
+  respawnAfterFailedChecks: 3
+  redirectForce: 10
+  pathRefreshInterval: 0.25
+  currentLap: 0
+  isFinished: 0
+  distanceToGoal: 0
 --- !u!54 &-9526827393962463
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -187,3 +203,24 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 80
   m_CollisionDetection: 0
+--- !u!135 &3499166660434775498
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6867665592549229238}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 1
+  m_Center: {x: 0, y: 0, z: 0}
