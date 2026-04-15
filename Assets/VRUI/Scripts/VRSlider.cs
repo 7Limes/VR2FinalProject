@@ -36,9 +36,19 @@ public class VRSlider : MonoBehaviour
         currentInteractor = null;
     }
 
-    public float getValue()
+    public float GetValue()
     {
         return currentValue;
+    }
+
+    public void SetValue(float value)
+    {
+        currentValue = value;
+    }
+
+    public void SetThumbColor(Color color)
+    {
+        thumbVisual.GetComponent<Renderer>().material.color = color;
     }
 
     void Start()
@@ -68,9 +78,9 @@ public class VRSlider : MonoBehaviour
             {
                 changeEvent.Invoke();
             }
-
-            UpdateThumb();
         }
+
+        UpdateThumb();
         
         float targetDistance = Vector3.Distance(thumbVisual.transform.localPosition, thumbTargetPosition);
         if (targetDistance > 0.001f)
@@ -87,7 +97,6 @@ public class VRSlider : MonoBehaviour
         Vector3 thumbPosition = Vector3.Lerp(lowerBound.localPosition, upperBound.localPosition, t);
         thumbPosition.y = thumbVisual.transform.localPosition.y;
         thumbTargetPosition = thumbPosition;
-        //thumbMoveTimer = 0;
     }
 
     private static float Vec3InverseLerp(Vector3 a, Vector3 b, Vector3 value)
