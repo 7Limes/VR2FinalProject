@@ -207,6 +207,10 @@ MonoBehaviour:
   valueRange: {x: 0, y: 1}
   currentValue: 0
   notchInterval: 0
+  thumbMoveDuration: 0.05
+  changeEvent:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!65 &7458424101761939408
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -226,8 +230,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.9, y: 0.09193685, z: 0.1}
-  m_Center: {x: 0, y: 0.020968433, z: 0}
+  m_Size: {x: 0.95, y: 0.13351604, z: 0.15}
+  m_Center: {x: 0, y: 0.00017884001, z: 0}
 --- !u!54 &232436892252524418
 Rigidbody:
   m_ObjectHideFlags: 0
