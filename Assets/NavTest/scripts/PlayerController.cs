@@ -132,6 +132,30 @@ public class PlayerController : MonoBehaviour
             {
                 AssignUniqueMaterial(newNPC);
             }
+            else
+            {
+                // Champion keeps its own material but still needs a
+                // RacerColorAssigner so RacerOutline can read the color
+                RacerColorAssigner colorAssigner = newNPC.GetComponent<RacerColorAssigner>();
+                if (colorAssigner == null)
+                {
+                    colorAssigner = newNPC.AddComponent<RacerColorAssigner>();
+                }
+
+                // Read the champion's existing material from its mesh
+                MeshRenderer championRenderer = newNPC.GetComponentInChildren<MeshRenderer>();
+                if (championRenderer != null && championRenderer.sharedMaterial != null)
+                {
+                    colorAssigner.assignedMaterial = championRenderer.sharedMaterial;
+                }
+
+                // Trigger outline generation
+                RacerOutline outline = newNPC.GetComponent<RacerOutline>();
+                if (outline != null)
+                {
+                    outline.GenerateOutline();
+                }
+            }
         }
     }
 
@@ -180,10 +204,19 @@ public class PlayerController : MonoBehaviour
             int randomIndex = Random.Range(0, availableMaterialsPool.Count);
             Material selectedMaterial = availableMaterialsPool[randomIndex];
 
-            MeshRenderer renderer = npc.GetComponentInChildren<MeshRenderer>();
-            if (renderer != null)
+            // Use RacerColorAssigner if present, otherwise apply directly
+            RacerColorAssigner colorAssigner = npc.GetComponent<RacerColorAssigner>();
+            if (colorAssigner == null)
             {
-                renderer.material = selectedMaterial;
+                colorAssigner = npc.AddComponent<RacerColorAssigner>();
+            }
+            colorAssigner.ApplyMaterial(selectedMaterial);
+
+            // Trigger outline generation if RacerOutline is on the prefab
+            RacerOutline outline = npc.GetComponent<RacerOutline>();
+            if (outline != null)
+            {
+                outline.GenerateOutline();
             }
 
             availableMaterialsPool.RemoveAt(randomIndex);

@@ -143,6 +143,7 @@ public class NPCMovement : MonoBehaviour
     void FixedUpdate()
     {
         if (!RaceManager.Instance.raceHasStarted) return;
+        if (isFinished) return;
 
         // --- Sync NavMesh to physics position FIRST, then apply forces ---
         SyncNavMesh();
@@ -242,11 +243,17 @@ public class NPCMovement : MonoBehaviour
     /// Sets a direct world position as the NavMesh destination.
     /// Used by RacerProgress for blended checkpoint targeting —
     /// the position slides smoothly between checkpoints each frame.
+    /// Only calls SetDestination when the position moves more than 0.5m
+    /// to avoid hammering the NavMesh pathfinder 50 times/second.
     /// </summary>
     public void SetDestinationDirect(Vector3 position)
     {
-        destinationOverride = position;
         hasDestinationOverride = true;
+
+        // Only recalculate the path if the destination moved meaningfully
+        if (Vector3.Distance(position, destinationOverride) < 0.5f) return;
+
+        destinationOverride = position;
 
         if (agent != null && agent.isOnNavMesh)
         {

@@ -295,11 +295,17 @@ public class RaceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Reads the racer's color from their MeshRenderer material.
-    /// Falls back to white if no renderer is found.
+    /// Reads the racer's color from RacerColorAssigner if present,
+    /// otherwise falls back to the first MeshRenderer material.
     /// </summary>
     Color GetRacerColor(GameObject racer)
     {
+        RacerColorAssigner colorAssigner = racer.GetComponent<RacerColorAssigner>();
+        if (colorAssigner != null)
+        {
+            return colorAssigner.GetRacerColor();
+        }
+
         MeshRenderer renderer = racer.GetComponentInChildren<MeshRenderer>();
         if (renderer != null && renderer.material != null)
         {
