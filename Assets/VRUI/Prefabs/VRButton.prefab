@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2697302209473075463}
   - component: {fileID: 5208157252087724405}
   m_Layer: 0
-  m_Name: PressVisual
+  m_Name: PressPart
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -31,7 +31,7 @@ Transform:
   m_LocalScale: {x: 0.1, y: 0.2, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 8624534399764967855}
+  m_Father: {fileID: 8598587865032563624}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &2697302209473075463
 MeshFilter:
@@ -153,7 +153,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3108665972888463689}
-  - {fileID: 3575527433003413865}
+  - {fileID: 8598587865032563624}
   - {fileID: 5239835602772095306}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -169,7 +169,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed3d330644baac8439dbfce42814b4ef, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  buttonVisual: {fileID: 130777868515730328}
+  buttonVisual: {fileID: 3129470367046868853}
+  pressPart: {fileID: 130777868515730328}
   pressTransform: {fileID: 5239835602772095306}
   pressDuration: 0.15
   pressSound: {fileID: 8300000, guid: eeeda5dce5e1d344f8e2f6195f16cb38, type: 3}
@@ -196,8 +197,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.20446634, y: 0.225, z: 0.225}
-  m_Center: {x: 0.053286552, y: 0, z: 0}
+  m_Size: {x: 0.29555988, y: 0.25, z: 0.25}
+  m_Center: {x: 0.08908033, y: 0, z: 0}
 --- !u!54 &3649572554289774353
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -442,6 +443,38 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!1 &3129470367046868853
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8598587865032563624}
+  m_Layer: 0
+  m_Name: PressVisual
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8598587865032563624
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3129470367046868853}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 3575527433003413865}
+  m_Father: {fileID: 8624534399764967855}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5607481376979063665
 GameObject:
   m_ObjectHideFlags: 0

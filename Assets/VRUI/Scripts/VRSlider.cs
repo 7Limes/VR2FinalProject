@@ -18,8 +18,11 @@ public class VRSlider : MonoBehaviour
 
     [SerializeField] private float notchInterval = 0.0f;
 
+    [SerializeField] private float thumbMoveDuration = 0.05f;
+
     [SerializeField] private UnityEvent changeEvent = null;
 
+    private Vector3 thumbTargetPosition;
 
     private IXRSelectInteractor currentInteractor = null;
 
@@ -33,13 +36,24 @@ public class VRSlider : MonoBehaviour
         currentInteractor = null;
     }
 
-    public float getValue()
+    public float GetValue()
     {
         return currentValue;
     }
 
+    public void SetValue(float value)
+    {
+        currentValue = value;
+    }
+
+    public void SetThumbColor(Color color)
+    {
+        thumbVisual.GetComponent<Renderer>().material.color = color;
+    }
+
     void Start()
     {
+        thumbTargetPosition = thumbVisual.transform.localPosition;
         UpdateThumb();
     }
 
@@ -64,8 +78,14 @@ public class VRSlider : MonoBehaviour
             {
                 changeEvent.Invoke();
             }
+        }
 
-            UpdateThumb();
+        UpdateThumb();
+        
+        float targetDistance = Vector3.Distance(thumbVisual.transform.localPosition, thumbTargetPosition);
+        if (targetDistance > 0.001f)
+        {
+            thumbVisual.transform.localPosition = Vector3.MoveTowards(thumbVisual.transform.localPosition, thumbTargetPosition, targetDistance / thumbMoveDuration * Time.deltaTime);
         }
     }
 
@@ -76,7 +96,7 @@ public class VRSlider : MonoBehaviour
         // Update thumb position
         Vector3 thumbPosition = Vector3.Lerp(lowerBound.localPosition, upperBound.localPosition, t);
         thumbPosition.y = thumbVisual.transform.localPosition.y;
-        thumbVisual.transform.localPosition = thumbPosition;
+        thumbTargetPosition = thumbPosition;
     }
 
     private static float Vec3InverseLerp(Vector3 a, Vector3 b, Vector3 value)
