@@ -22,7 +22,6 @@ public class CharacterCustomizer : MonoBehaviour
     public void UpdateSelectedMaterial()
     {
         int index = materialSelectorPanel.GetCurrentButtonIndex();
-        Debug.Log(index);
         Color color = materials[index].color;
         float h, s, v;
         Color.RGBToHSV(color, out h, out s, out v);
