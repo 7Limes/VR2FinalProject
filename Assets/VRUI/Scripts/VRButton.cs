@@ -4,6 +4,7 @@ using UnityEngine.Events;
 public class VRButton : MonoBehaviour
 {
     [SerializeField] private GameObject buttonVisual;
+    [SerializeField] private GameObject pressPart;
 
     [SerializeField] private Transform pressTransform;
     [SerializeField] private float pressDuration = 0.2f;
@@ -11,7 +12,10 @@ public class VRButton : MonoBehaviour
     [SerializeField] private AudioClip pressSound = null;
     [SerializeField] private AudioClip releaseSound = null;
 
-    [SerializeField] private UnityEvent pressEvent;
+    public UnityEvent pressEvent;
+
+    // Runs before pressEvent
+    private UnityEvent priorityPressEvent = new UnityEvent();
 
     
     enum State
@@ -29,6 +33,7 @@ public class VRButton : MonoBehaviour
     
     public void SelectEnter()
     {
+        priorityPressEvent.Invoke();
         pressEvent.Invoke();
 
         if (pressSound != null)
@@ -40,13 +45,21 @@ public class VRButton : MonoBehaviour
 
     public void SelectExit()
     {
-        pressEvent.Invoke();
-
         if (releaseSound != null)
             audioSource.PlayOneShot(releaseSound);
 
         state = State.Releasing;
         pressTimer = 0f;
+    }
+
+    public void SetPressPartColor(Color color)
+    {
+        pressPart.GetComponent<Renderer>().material.color = color;
+    }
+
+    public void AddPriorityAction(UnityAction action)
+    {
+        priorityPressEvent.AddListener(action);
     }
 
     private void Start()
