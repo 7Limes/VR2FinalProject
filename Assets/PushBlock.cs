@@ -32,3 +32,15 @@ public class MoveBackAndForth : MonoBehaviour
         transform.position = startPosition + (direction * offset);
     }
 }
+
+// Add this to your NPCMovement class
+
+//public System.Collections.IEnumerator ApplySlowdown(float factor, float duration)
+//{
+//    float originalSpeed = moveSpeed;
+//    moveSpeed *= factor; // Reduce speed (e.g., 0.5f is half speed)
+//
+//    yield return new WaitForSeconds(duration);
+//
+//    moveSpeed = originalSpeed;
+//}
