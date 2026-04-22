@@ -41,9 +41,23 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Physics material bounciness")]
     public float ballBounciness = 0.3f;
 
+    // Shared physics material — every racer reuses the same instance instead
+    // of allocating a new one. Cheaper memory and consistent behavior.
+    private PhysicsMaterial sharedBallMaterial;
+
     void Start()
     {
         availableMaterialsPool = new List<Material>(racerMaterials);
+
+        sharedBallMaterial = new PhysicsMaterial("BallPhysics_Shared")
+        {
+            dynamicFriction = ballFriction,
+            staticFriction = ballFriction * 1.2f,
+            bounciness = ballBounciness,
+            frictionCombine = PhysicsMaterialCombine.Minimum,
+            bounceCombine = PhysicsMaterialCombine.Average
+        };
+
         SpawnNPCs();
     }
 
@@ -128,6 +142,13 @@ public class PlayerController : MonoBehaviour
                 progress = newNPC.AddComponent<RacerProgress>();
             }
 
+            // --- Wire up UFO-style cart facing + tilt ---
+            CartVisualRotation visualRot = newNPC.GetComponent<CartVisualRotation>();
+            if (visualRot == null)
+            {
+                visualRot = newNPC.AddComponent<CartVisualRotation>();
+            }
+
             if (!isChampion)
             {
                 AssignUniqueMaterial(newNPC);
@@ -179,21 +200,14 @@ public class PlayerController : MonoBehaviour
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-        // Freeze no axes � we want full rolling freedom
+        // Freeze no axes � we want full rolling freedom
         rb.constraints = RigidbodyConstraints.None;
 
-        // --- Apply physics material to whatever collider the prefab already has ---
-        PhysicsMaterial ballMat = new PhysicsMaterial("BallPhysics");
-        ballMat.dynamicFriction = ballFriction;
-        ballMat.staticFriction = ballFriction * 1.2f;
-        ballMat.bounciness = ballBounciness;
-        ballMat.frictionCombine = PhysicsMaterialCombine.Minimum;
-        ballMat.bounceCombine = PhysicsMaterialCombine.Average;
-
+        // Reuse the shared physics material — avoids allocating one per racer
         Collider col = racer.GetComponent<Collider>();
         if (col != null)
         {
-            col.material = ballMat;
+            col.sharedMaterial = sharedBallMaterial;
         }
     }
 

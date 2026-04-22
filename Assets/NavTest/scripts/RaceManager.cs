@@ -3,7 +3,6 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 
 public class RaceManager : MonoBehaviour
 {
@@ -29,6 +28,8 @@ public class RaceManager : MonoBehaviour
     public GameObject lapUIContainer;
     [Tooltip("The Image component displaying the current lap number (1, 2, 3).")]
     public Image currentLapImage;
+    [Tooltip("The Image component displaying the TOTAL lap number (the '/Y' half).")]
+    public Image totalLapImage;
     [Tooltip("Array of lap numbers. Index 0 = '1', Index 1 = '2', Index 2 = '3'.")]
     public Sprite[] lapSprites;
 
@@ -45,6 +46,17 @@ public class RaceManager : MonoBehaviour
     // Populated at race start from CheckpointManager's registry
     private List<RacerProgress> allRacers = new List<RacerProgress>();
     private int lastRecordedFinishCount = 0;
+
+    // --- Leaderboard caching ---
+    // Sorting every frame with LINQ allocates garbage (Enumerable iterators + new List).
+    // We throttle the sort and reuse a single buffer for comparisons.
+    [Header("Performance")]
+    [Tooltip("How often (seconds) to re-sort the leaderboard. Champion UI is updated on this cadence.")]
+    public float leaderboardRefreshInterval = 0.15f;
+    private float leaderboardTimer = 0f;
+    private readonly List<RacerProgress> sortedBuffer = new List<RacerProgress>();
+    private RacerProgress cachedChampion;
+    private int cachedChampionRank = 1;
 
     void Awake() { Instance = this; }
 
@@ -162,6 +174,13 @@ public class RaceManager : MonoBehaviour
                 movement.currentLap = 1;
             }
         }
+
+        // Set the "/Y" portion of the lap UI once — totalLaps never changes
+        // mid-race, so there's no need to keep re-assigning it each frame.
+        int totalLaps = CheckpointManager.Instance != null
+            ? CheckpointManager.Instance.totalLaps
+            : 3;
+        SetTotalLapSprite(totalLaps);
     }
 
     void Update()
@@ -179,50 +198,69 @@ public class RaceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Sorts all racers by overall race progress and updates
-    /// the Champion's current rank and lap sprites.
+    /// Updates the Champion's current rank and lap sprites.
+    /// Throttles the full leaderboard sort (leaderboardRefreshInterval) to avoid
+    /// allocating a fresh sorted List every frame via LINQ.
     /// </summary>
     void UpdateChampionUI()
     {
         if (allRacers.Count == 0) return;
 
-        // Sort by race progress: laps + checkpoints + distance to next target
-        var sortedRacers = allRacers
-            .OrderByDescending(r => r.GetRaceProgress())
-            .ToList();
-
-        // Find the Champion
-        RacerProgress champion = allRacers.Find(r => r.gameObject.name == "Champion");
-
-        if (champion != null)
+        // Find and cache the Champion reference once (name lookup is linear)
+        if (cachedChampion == null)
         {
-            int totalLaps = CheckpointManager.Instance != null
-                ? CheckpointManager.Instance.totalLaps
-                : 3;
-
-            if (champion.isFinished)
-            {
-                int place = GetFinishPlace(champion);
-                SetRankSprite(place);
-
-                // Hide the lap background & number when the race is over
-                if (lapUIContainer != null) lapUIContainer.SetActive(false);
-            }
-            else
-            {
-                int rank = sortedRacers.IndexOf(champion) + 1;
-                SetRankSprite(rank);
-
-                int displayLap = Mathf.Min(champion.currentLap, totalLaps);
-                SetLapSprite(displayLap);
-
-                // Ensure lap UI is visible while racing
-                if (lapUIContainer != null && !lapUIContainer.activeSelf)
-                {
-                    lapUIContainer.SetActive(true);
-                }
-            }
+            cachedChampion = allRacers.Find(r => r != null && r.gameObject.name == "Champion");
         }
+        if (cachedChampion == null) return;
+
+        int totalLaps = CheckpointManager.Instance != null
+            ? CheckpointManager.Instance.totalLaps
+            : 3;
+
+        if (cachedChampion.isFinished)
+        {
+            SetRankSprite(GetFinishPlace(cachedChampion));
+            if (lapUIContainer != null && lapUIContainer.activeSelf) lapUIContainer.SetActive(false);
+            return;
+        }
+
+        // Re-sort only on the throttled cadence
+        leaderboardTimer -= Time.deltaTime;
+        if (leaderboardTimer <= 0f)
+        {
+            leaderboardTimer = leaderboardRefreshInterval;
+            RebuildSortedBuffer();
+            cachedChampionRank = sortedBuffer.IndexOf(cachedChampion) + 1;
+            if (cachedChampionRank <= 0) cachedChampionRank = 1;
+        }
+
+        SetRankSprite(cachedChampionRank);
+        SetLapSprite(Mathf.Min(cachedChampion.currentLap, totalLaps));
+
+        if (lapUIContainer != null && !lapUIContainer.activeSelf)
+        {
+            lapUIContainer.SetActive(true);
+        }
+    }
+
+    /// <summary>
+    /// Sorts allRacers by race progress into a reused buffer.
+    /// Uses List.Sort (in-place) instead of LINQ OrderByDescending
+    /// which would allocate iterators and a new list each call.
+    /// </summary>
+    void RebuildSortedBuffer()
+    {
+        sortedBuffer.Clear();
+        for (int i = 0; i < allRacers.Count; i++)
+        {
+            if (allRacers[i] != null) sortedBuffer.Add(allRacers[i]);
+        }
+        sortedBuffer.Sort(CompareByProgressDesc);
+    }
+
+    static int CompareByProgressDesc(RacerProgress a, RacerProgress b)
+    {
+        return b.GetRaceProgress().CompareTo(a.GetRaceProgress());
     }
 
     /// <summary>
@@ -248,6 +286,20 @@ public class RaceManager : MonoBehaviour
             // Subtract 1 because arrays are 0-indexed (lap 1 = index 0)
             int spriteIndex = Mathf.Clamp(lap - 1, 0, lapSprites.Length - 1);
             currentLapImage.sprite = lapSprites[spriteIndex];
+        }
+    }
+
+    /// <summary>
+    /// Fills in the "/Y" half of the lap UI with the total-lap sprite.
+    /// Called once when the race begins since total laps is fixed for the race.
+    /// </summary>
+    void SetTotalLapSprite(int totalLaps)
+    {
+        if (totalLapImage != null && lapSprites != null && lapSprites.Length > 0)
+        {
+            int spriteIndex = Mathf.Clamp(totalLaps - 1, 0, lapSprites.Length - 1);
+            totalLapImage.sprite = lapSprites[spriteIndex];
+            totalLapImage.enabled = true;
         }
     }
 

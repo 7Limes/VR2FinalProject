@@ -15,12 +15,12 @@ using UnityEngine;
 ///    or into the startFinishZone slot.
 /// 
 /// The checkpointIndex and isStartFinish fields are set automatically
-/// by CheckpointManager at runtime — don't set them manually.
+/// by CheckpointManager at runtime ï¿½ don't set them manually.
 /// </summary>
 [RequireComponent(typeof(Collider))]
 public class Checkpoint : MonoBehaviour
 {
-    [Header("Set by CheckpointManager at runtime — do not edit")]
+    [Header("Set by CheckpointManager at runtime ï¿½ do not edit")]
     [HideInInspector] public int checkpointIndex;
     [HideInInspector] public bool isStartFinish;
 
@@ -40,36 +40,57 @@ public class Checkpoint : MonoBehaviour
         if (col != null && !col.isTrigger)
         {
             col.isTrigger = true;
-            Debug.LogWarning($"Checkpoint '{gameObject.name}' collider was not a trigger — fixed automatically.");
+            Debug.LogWarning($"Checkpoint '{gameObject.name}' collider was not a trigger ï¿½ fixed automatically.");
         }
+    }
+
+    // Cache the RacerProgress for colliders we've seen inside this trigger.
+    // OnTriggerStay fires every FixedUpdate for every collider inside â€”
+    // without this, GetComponent/GetComponentInParent ran ~50Ã—/sec per racer.
+    private readonly System.Collections.Generic.Dictionary<Collider, RacerProgress> racerCache
+        = new System.Collections.Generic.Dictionary<Collider, RacerProgress>();
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (!racerCache.ContainsKey(other))
+        {
+            RacerProgress racer = other.GetComponent<RacerProgress>();
+            if (racer == null) racer = other.GetComponentInParent<RacerProgress>();
+            racerCache[other] = racer; // may be null â€” still cache to avoid repeat lookups
+        }
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        racerCache.Remove(other);
     }
 
     /// <summary>
     /// Fires every physics frame while a racer is inside this trigger.
-    /// This ensures the checkpoint registers even if the racer was already
-    /// inside the box when this became their next target (OnTriggerEnter
-    /// would miss that case since the racer never "entered" — they were
-    /// already there). RacerProgress guards against double-processing,
-    /// so only the first valid frame actually advances progress.
+    /// OnTriggerEnter can miss the case where the checkpoint becomes the
+    /// racer's next target while they're already overlapping it, so we
+    /// keep polling with OnTriggerStay. RacerProgress dedupes so only the
+    /// first valid frame advances progress.
     /// </summary>
     void OnTriggerStay(Collider other)
     {
-        RacerProgress racer = other.GetComponent<RacerProgress>();
-        if (racer == null)
+        RacerProgress racer;
+        if (!racerCache.TryGetValue(other, out racer))
         {
-            racer = other.GetComponentInParent<RacerProgress>();
+            racer = other.GetComponent<RacerProgress>();
+            if (racer == null) racer = other.GetComponentInParent<RacerProgress>();
+            racerCache[other] = racer;
         }
 
-        if (racer != null)
+        if (racer == null) return;
+
+        if (isStartFinish)
         {
-            if (isStartFinish)
-            {
-                racer.OnCrossedStartFinish();
-            }
-            else
-            {
-                racer.OnHitCheckpoint(checkpointIndex);
-            }
+            racer.OnCrossedStartFinish();
+        }
+        else
+        {
+            racer.OnHitCheckpoint(checkpointIndex);
         }
     }
 

@@ -198,6 +198,7 @@ GameObject:
   - component: {fileID: 3128078431576954959}
   - component: {fileID: 7144246194303638882}
   - component: {fileID: 3835521478367314558}
+  - component: {fileID: 3178808229812059728}
   m_Layer: 0
   m_Name: character
   m_TagString: Untagged
@@ -433,6 +434,26 @@ MonoBehaviour:
   outlineThickness: 0.05
   outlineMaterial: {fileID: 0}
   outlineRenderQueue: 2999
+--- !u!114 &3178808229812059728
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491109933342246318}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a5e66370f706c948acf83b857bd180d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cartPath: character
+  yawOffset: 180
+  maxTiltAngle: 20
+  referenceSpeed: 0
+  yawSmoothTime: 0.12
+  tiltSmoothTime: 0.2
+  minMoveSpeed: 0.3
+  debugLogging: 0
 --- !u!1 &1786883320917218526
 GameObject:
   m_ObjectHideFlags: 0

@@ -33,7 +33,7 @@ public class RacerProgress : MonoBehaviour
 
     [Header("Debug")]
     [Tooltip("Enable to see checkpoint progress logs in the Console")]
-    public bool debugLogging = true;
+    public bool debugLogging = false;
 
     [Header("Checkpoint Detection")]
     [Tooltip("Distance to the nearest surface of a checkpoint's collider " +
@@ -51,6 +51,12 @@ public class RacerProgress : MonoBehaviour
 
     private NPCMovement npcMovement;
     private CheckpointManager cpManager;
+    private RaceManager raceManager;
+
+    // Cached checkpoint colliders — GetComponent<Collider>() in GetDistanceToCollider
+    // was running every FixedUpdate for every racer. Cache on checkpoint advance instead.
+    private Collider cachedTargetCollider;
+    private Transform cachedTargetTransform;
 
     void Start()
     {
@@ -101,7 +107,8 @@ public class RacerProgress : MonoBehaviour
         if (isFinished) return;
         if (cpManager == null) return;
         if (npcMovement == null) return;
-        if (!RaceManager.Instance.raceHasStarted) return;
+        if (raceManager == null) raceManager = RaceManager.Instance;
+        if (raceManager == null || !raceManager.raceHasStarted) return;
 
         // --- Get the checkpoint we need to pass through ---
         Transform currentCP = headingToFinishLine
@@ -110,8 +117,15 @@ public class RacerProgress : MonoBehaviour
 
         if (currentCP == null) return;
 
+        // Refresh the cached collider only when the target changes
+        if (currentCP != cachedTargetTransform)
+        {
+            cachedTargetTransform = currentCP;
+            cachedTargetCollider = currentCP.GetComponent<Collider>();
+        }
+
         // Measure distance to nearest surface of the checkpoint's collider
-        float dist = GetDistanceToCollider(currentCP);
+        float dist = GetDistanceToCollider();
 
         // --- Register passage when close enough ---
         if (dist <= checkpointReachDistance)
@@ -159,19 +173,22 @@ public class RacerProgress : MonoBehaviour
     }
 
     /// <summary>
-    /// Returns the distance from this racer to the nearest surface of a
-    /// checkpoint's collider. Uses Collider.ClosestPoint so the entire
-    /// box volume counts, not just the center point.
+    /// Returns the distance from this racer to the nearest surface of the
+    /// current target checkpoint's collider. Uses the cached collider
+    /// reference to avoid GetComponent per FixedUpdate.
     /// </summary>
-    float GetDistanceToCollider(Transform checkpoint)
+    float GetDistanceToCollider()
     {
-        Collider col = checkpoint.GetComponent<Collider>();
-        if (col != null)
+        if (cachedTargetCollider != null)
         {
-            Vector3 closestPoint = col.ClosestPoint(transform.position);
+            Vector3 closestPoint = cachedTargetCollider.ClosestPoint(transform.position);
             return Vector3.Distance(transform.position, closestPoint);
         }
-        return Vector3.Distance(transform.position, checkpoint.position);
+        if (cachedTargetTransform != null)
+        {
+            return Vector3.Distance(transform.position, cachedTargetTransform.position);
+        }
+        return float.MaxValue;
     }
 
     /// <summary>

@@ -31,6 +31,10 @@ public class RacerColorAssigner : MonoBehaviour
     [Tooltip("The material that was assigned to this racer")]
     public Material assignedMaterial;
 
+    // Cache of resolved icosphere renderers — avoids doing transform.Find()
+    // across 11 slash-separated paths every time ApplyMaterial runs.
+    private MeshRenderer[] cachedIcosphereRenderers;
+
     /// <summary>
     /// Call this to assign a random material from the pool.
     /// Called automatically in Start, or can be called externally
@@ -47,25 +51,47 @@ public class RacerColorAssigner : MonoBehaviour
     /// <summary>
     /// Assigns a specific material to all icospheres.
     /// Used by PlayerController to assign from a unique pool.
+    /// Caches renderer references on first call so re-coloring is O(n).
     /// </summary>
     public void ApplyMaterial(Material mat)
     {
         assignedMaterial = mat;
 
+        if (cachedIcosphereRenderers == null)
+        {
+            ResolveIcosphereRenderers();
+        }
+
+        if (cachedIcosphereRenderers == null) return;
+
+        for (int i = 0; i < cachedIcosphereRenderers.Length; i++)
+        {
+            MeshRenderer r = cachedIcosphereRenderers[i];
+            if (r != null) r.material = mat;
+        }
+    }
+
+    void ResolveIcosphereRenderers()
+    {
+        int count = lastIndex - firstIndex + 1;
+        if (count <= 0)
+        {
+            cachedIcosphereRenderers = new MeshRenderer[0];
+            return;
+        }
+
+        var list = new List<MeshRenderer>(count);
         for (int i = firstIndex; i <= lastIndex; i++)
         {
             string sphereName = icospherePath + "/" + icosphereBaseName + "." + i.ToString("D3");
             Transform sphere = transform.Find(sphereName);
-
             if (sphere != null)
             {
-                MeshRenderer renderer = sphere.GetComponent<MeshRenderer>();
-                if (renderer != null)
-                {
-                    renderer.material = mat;
-                }
+                MeshRenderer r = sphere.GetComponent<MeshRenderer>();
+                if (r != null) list.Add(r);
             }
         }
+        cachedIcosphereRenderers = list.ToArray();
     }
 
     /// <summary>

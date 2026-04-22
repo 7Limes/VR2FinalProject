@@ -5,10 +5,13 @@ using UnityEngine.AI;
 public class ObstacleBehaviour : MonoBehaviour
 {
     private NavMeshObstacle obstacle;
+    private Rigidbody rb;
+    private bool landed;
 
     void Start()
     {
         obstacle = GetComponent<NavMeshObstacle>();
+        rb = GetComponent<Rigidbody>();
 
         // Disable carving while falling so agents don't try to path around an airborne box
         obstacle.carving = false;
@@ -16,15 +19,18 @@ public class ObstacleBehaviour : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
-        // Check if the obstacle hit the ground
+        if (landed) return;
+
         if (collision.gameObject.CompareTag("Ground"))
         {
-            // Enabling Carve cuts a hole in the NavMesh, forcing agents to route around it
+            landed = true;
+
+            // Carve the NavMesh so racers reroute around the newly placed obstacle
             obstacle.carving = true;
 
-            // Optional: Freeze the Rigidbody so agents don't push the box around 
-            // once it has landed, which can cause NavMesh stuttering.
-            GetComponent<Rigidbody>().isKinematic = true;
+            // Freeze so racers can't shove the obstacle around (NavMesh stutter)
+            // but keep the collider active so they still physically collide
+            if (rb != null) rb.isKinematic = true;
         }
     }
 }

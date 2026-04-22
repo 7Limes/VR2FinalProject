@@ -84,12 +84,16 @@ public class NPCMovement : MonoBehaviour
     private bool hasDestinationOverride = false;
     private Vector3 destinationOverride;
 
+    // Reused arrays/scratch state to avoid per-frame allocations (critical for VR)
+    private static readonly float[] FanAngles = { 0f, -20f, 20f, -45f, 45f };
+    private RaceManager raceManager;
+
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
         rb = GetComponent<Rigidbody>();
 
-        // NavMeshAgent is used for pathfinding ONLY — not for moving the transform
+        // NavMeshAgent is used for pathfinding ONLY ï¿½ not for moving the transform
         agent.updatePosition = false;
         agent.updateRotation = false;
         agent.autoRepath = true;
@@ -129,8 +133,10 @@ public class NPCMovement : MonoBehaviour
             Respawn();
         }
 
-        // Wait for race to begin
-        if (!RaceManager.Instance.raceHasStarted) return;
+        // Wait for race to begin â€” cache the RaceManager reference to avoid
+        // repeated static property hits (and guard against null during scene teardown)
+        if (raceManager == null) raceManager = RaceManager.Instance;
+        if (raceManager == null || !raceManager.raceHasStarted) return;
 
         // First frame the race starts: unfreeze physics so they can roll
         if (!hasStarted)
@@ -142,7 +148,7 @@ public class NPCMovement : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (!RaceManager.Instance.raceHasStarted) return;
+        if (raceManager == null || !raceManager.raceHasStarted) return;
         if (isFinished) return;
 
         // --- Sync NavMesh to physics position FIRST, then apply forces ---
@@ -164,7 +170,7 @@ public class NPCMovement : MonoBehaviour
     /// Syncs the NavMeshAgent's position with the Rigidbody every physics tick.
     /// Uses nextPosition (which preserves the current path and desiredVelocity)
     /// as the normal sync method. Only uses Warp as a recovery when the agent
-    /// has fallen off the NavMesh — Warp clears the path, so we avoid it
+    /// has fallen off the NavMesh ï¿½ Warp clears the path, so we avoid it
     /// during normal operation to keep pathfinding and the PathDrawer working.
     /// </summary>
     void SyncNavMesh()
@@ -217,7 +223,7 @@ public class NPCMovement : MonoBehaviour
                 // call SetDestination again next tick
                 pathRefreshTimer = pathRefreshInterval;
             }
-            // If no NavMesh within 10 units, the ball is truly lost —
+            // If no NavMesh within 10 units, the ball is truly lost ï¿½
             // fall-off-map check or boundary trigger will handle respawn
         }
     }
@@ -241,7 +247,7 @@ public class NPCMovement : MonoBehaviour
 
     /// <summary>
     /// Sets a direct world position as the NavMesh destination.
-    /// Used by RacerProgress for blended checkpoint targeting —
+    /// Used by RacerProgress for blended checkpoint targeting ï¿½
     /// the position slides smoothly between checkpoints each frame.
     /// Only calls SetDestination when the position moves more than 0.5m
     /// to avoid hammering the NavMesh pathfinder 50 times/second.
@@ -265,7 +271,7 @@ public class NPCMovement : MonoBehaviour
     /// Adaptive rolling: follows the NavMesh path with variable grip.
     /// 
     /// On straight, clear paths: gentle steering, look-ahead anticipation active,
-    ///   drift allowed — feels like natural rolling momentum.
+    ///   drift allowed ï¿½ feels like natural rolling momentum.
     /// Near obstacles (NavMesh direction differs from current velocity):
     ///   steering grip scales up dramatically, look-ahead influence drops,
     ///   the ball actively redirects to follow the NavMesh path around obstacles.
@@ -291,7 +297,7 @@ public class NPCMovement : MonoBehaviour
         float deviationFactor = Mathf.Clamp01(1f - alignment);
 
         // --- 1) Look ahead for smooth cornering ---
-        // Reduce anticipation influence when deviating — the NavMesh's immediate
+        // Reduce anticipation influence when deviating ï¿½ the NavMesh's immediate
         // direction is more important than the look-ahead when avoiding obstacles
         float effectiveAnticipation = anticipationWeight * (1f - deviationFactor);
 
@@ -369,7 +375,7 @@ public class NPCMovement : MonoBehaviour
             accumulated += segLen;
         }
 
-        // Look-ahead extends past the end of the path — return the goal
+        // Look-ahead extends past the end of the path ï¿½ return the goal
         return corners[corners.Length - 1];
     }
 
@@ -449,7 +455,7 @@ public class NPCMovement : MonoBehaviour
     /// <summary>
     /// Periodically checks whether the racer has made real progress toward
     /// the goal. A racer bouncing against a wall has velocity but makes no
-    /// progress — this catches that case unlike simple speed checks.
+    /// progress ï¿½ this catches that case unlike simple speed checks.
     /// 
     /// Stage 1 (redirect):  Find a clear direction via raycasts and push that way
     /// Stage 2 (path follow): Kill velocity, push directly toward next NavMesh corner
@@ -466,7 +472,7 @@ public class NPCMovement : MonoBehaviour
 
         if (moved >= minimumProgressDistance)
         {
-            // Making progress — reset
+            // Making progress ï¿½ reset
             failedProgressChecks = 0;
             lastProgressPosition = transform.position;
             return;
@@ -502,7 +508,7 @@ public class NPCMovement : MonoBehaviour
         Vector3 redirectDir = Vector3.zero;
 
         // Try 1: Push toward the next NavMesh path corner (not the final destination,
-        // but the next CORNER — this is usually the direction around the obstacle)
+        // but the next CORNER ï¿½ this is usually the direction around the obstacle)
         if (agent.hasPath && agent.path.corners.Length >= 2)
         {
             // corners[0] is current position, corners[1] is the next turn point
@@ -544,7 +550,7 @@ public class NPCMovement : MonoBehaviour
             if (Physics.Raycast(transform.position + Vector3.up * 0.3f,
                                 testDir, out RaycastHit hit, lookAheadDistance, obstacleLayer))
             {
-                // Partially blocked — score by how far the ray got
+                // Partially blocked ï¿½ score by how far the ray got
                 float clearance = hit.distance / lookAheadDistance;
                 float goalAlignment = goalDir.sqrMagnitude > 0.01f
                     ? (Vector3.Dot(testDir, goalDir) + 1f) * 0.5f  // 0 to 1
@@ -559,7 +565,7 @@ public class NPCMovement : MonoBehaviour
             }
             else
             {
-                // Fully clear — score it highly, bonus if it points toward goal
+                // Fully clear ï¿½ score it highly, bonus if it points toward goal
                 float goalAlignment = goalDir.sqrMagnitude > 0.01f
                     ? (Vector3.Dot(testDir, goalDir) + 1f) * 0.5f
                     : 0.5f;
@@ -581,7 +587,7 @@ public class NPCMovement : MonoBehaviour
 
     /// <summary>
     /// Casts a fan of rays ahead of the racer to detect obstacles early.
-    /// Dodge force scales with proximity — closer obstacles get a harder push.
+    /// Dodge force scales with proximity ï¿½ closer obstacles get a harder push.
     /// Rays follow both the current velocity AND the NavMesh desired direction
     /// so the racer avoids obstacles on the path it's about to take, not just
     /// what's directly ahead of its current momentum.
@@ -601,12 +607,11 @@ public class NPCMovement : MonoBehaviour
         primaryDir.y = 0f;
         primaryDir.Normalize();
 
-        // Fan angles: center, slight left/right, wide left/right
-        float[] fanAngles = { 0f, -20f, 20f, -45f, 45f };
-
-        foreach (float angle in fanAngles)
+        // Fan angles (center, slight L/R, wide L/R) â€” use static readonly to avoid
+        // allocating a new float[] every FixedUpdate
+        for (int i = 0; i < FanAngles.Length; i++)
         {
-            Vector3 rayDir = Quaternion.Euler(0f, angle, 0f) * primaryDir;
+            Vector3 rayDir = Quaternion.Euler(0f, FanAngles[i], 0f) * primaryDir;
 
             if (Physics.Raycast(rayOrigin, rayDir, out RaycastHit hit, lookAheadDistance, obstacleLayer))
             {
@@ -631,13 +636,15 @@ public class NPCMovement : MonoBehaviour
 
     void ClampSpeed()
     {
-        Vector3 horizontal = rb.linearVelocity;
-        horizontal.y = 0f;
+        Vector3 vel = rb.linearVelocity;
+        float horizSqr = vel.x * vel.x + vel.z * vel.z;
+        float maxSqr = maxSpeed * maxSpeed;
 
-        if (horizontal.magnitude > maxSpeed)
+        // sqrMagnitude avoids a sqrt when we're already under the cap
+        if (horizSqr > maxSqr)
         {
-            horizontal = horizontal.normalized * maxSpeed;
-            rb.linearVelocity = new Vector3(horizontal.x, rb.linearVelocity.y, horizontal.z);
+            float scale = maxSpeed / Mathf.Sqrt(horizSqr);
+            rb.linearVelocity = new Vector3(vel.x * scale, vel.y, vel.z * scale);
         }
     }
 
