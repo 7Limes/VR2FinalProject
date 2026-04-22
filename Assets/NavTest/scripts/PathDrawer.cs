@@ -16,17 +16,37 @@ public class PathDrawer : MonoBehaviour
     [Tooltip("How many meters ahead the line should be drawn.")]
     public float maxDrawDistance = 5f;
 
+    [Header("Update Throttling")]
+    [Tooltip("How often (seconds) to rebuild the drawn path. Lower = smoother, higher = cheaper. 0 = every frame.")]
+    public float updateInterval = 0.05f;
+
+    // Reusable buffers — allocated once, reused every frame to avoid GC spikes in VR
+    private List<Vector3> bufferA;
+    private List<Vector3> bufferB;
+    private List<Vector3> truncatedPoints;
+    private Vector3[] positionScratch;
+    private float updateTimer;
+
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
         lineRenderer = GetComponent<LineRenderer>();
         lineRenderer.useWorldSpace = true;
 
+        bufferA = new List<Vector3>(64);
+        bufferB = new List<Vector3>(64);
+        truncatedPoints = new List<Vector3>(64);
+        positionScratch = new Vector3[0];
+
         SetupFadeGradient();
     }
 
     void Update()
     {
+        updateTimer -= Time.deltaTime;
+        if (updateTimer > 0f) return;
+        updateTimer = updateInterval;
+
         if (agent.hasPath && agent.path.corners.Length > 1)
         {
             lineRenderer.enabled = true;
@@ -41,77 +61,77 @@ public class PathDrawer : MonoBehaviour
     void DrawCurvedPath()
     {
         Vector3[] corners = agent.path.corners;
-        List<Vector3> pointList = new List<Vector3>(corners);
 
-        // 1. Smooth the path
+        // Seed bufferA with the raw path corners (no per-frame List allocation)
+        bufferA.Clear();
+        for (int i = 0; i < corners.Length; i++) bufferA.Add(corners[i]);
+
+        // Ping-pong smoothing between two pre-allocated buffers
+        List<Vector3> src = bufferA;
+        List<Vector3> dst = bufferB;
         for (int i = 0; i < smoothingIterations; i++)
         {
-            pointList = SmoothCurve(pointList);
+            SmoothCurveInto(src, dst);
+            List<Vector3> swap = src; src = dst; dst = swap;
         }
 
-        // 2. Limit the distance and apply height offset
-        List<Vector3> truncatedPoints = new List<Vector3>();
-        if (pointList.Count > 0)
+        // Truncate to maxDrawDistance + apply height offset
+        truncatedPoints.Clear();
+        if (src.Count > 0)
         {
-            // Start with the very first point and add the height offset
-            truncatedPoints.Add(pointList[0] + Vector3.up * heightOffset);
+            truncatedPoints.Add(src[0] + Vector3.up * heightOffset);
         }
 
         float currentDistance = 0f;
-
-        for (int i = 1; i < pointList.Count; i++)
+        for (int i = 1; i < src.Count; i++)
         {
-            Vector3 previousPoint = pointList[i - 1];
-            Vector3 currentPoint = pointList[i];
+            Vector3 previousPoint = src[i - 1];
+            Vector3 currentPoint = src[i];
 
             float segmentDistance = Vector3.Distance(previousPoint, currentPoint);
 
             if (currentDistance + segmentDistance > maxDrawDistance)
             {
-                // If this segment pushes us over the max distance, calculate exactly where to cut it off
                 float remainingDistance = maxDrawDistance - currentDistance;
                 Vector3 finalPoint = previousPoint + (currentPoint - previousPoint).normalized * remainingDistance;
-
                 truncatedPoints.Add(finalPoint + Vector3.up * heightOffset);
-                break; // Stop adding points entirely
+                break;
             }
-            else
-            {
-                // We are still under the limit, so add the point
-                currentDistance += segmentDistance;
-                truncatedPoints.Add(currentPoint + Vector3.up * heightOffset);
-            }
+
+            currentDistance += segmentDistance;
+            truncatedPoints.Add(currentPoint + Vector3.up * heightOffset);
         }
 
-        // 3. Apply the final points to the Line Renderer
-        lineRenderer.positionCount = truncatedPoints.Count;
-        lineRenderer.SetPositions(truncatedPoints.ToArray());
+        // Reuse the positions array if it's the right size (avoids ToArray() allocation)
+        int count = truncatedPoints.Count;
+        if (positionScratch.Length != count)
+        {
+            positionScratch = new Vector3[count];
+        }
+        for (int i = 0; i < count; i++) positionScratch[i] = truncatedPoints[i];
+
+        lineRenderer.positionCount = count;
+        lineRenderer.SetPositions(positionScratch);
     }
 
-    List<Vector3> SmoothCurve(List<Vector3> points)
+    void SmoothCurveInto(List<Vector3> points, List<Vector3> output)
     {
-        List<Vector3> smoothedPoints = new List<Vector3>();
-        smoothedPoints.Add(points[0]);
+        output.Clear();
+        if (points.Count == 0) return;
 
+        output.Add(points[0]);
         for (int i = 0; i < points.Count - 1; i++)
         {
             Vector3 p0 = points[i];
             Vector3 p1 = points[i + 1];
-
-            Vector3 q = Vector3.Lerp(p0, p1, 0.25f);
-            Vector3 r = Vector3.Lerp(p0, p1, 0.75f);
-
-            smoothedPoints.Add(q);
-            smoothedPoints.Add(r);
+            output.Add(Vector3.Lerp(p0, p1, 0.25f));
+            output.Add(Vector3.Lerp(p0, p1, 0.75f));
         }
-
-        smoothedPoints.Add(points[points.Count - 1]);
-        return smoothedPoints;
+        output.Add(points[points.Count - 1]);
     }
 
     void SetupFadeGradient()
     {
-        // Creates a gradient that keeps the material's original color, but fades alpha from 1 to 0
         Gradient gradient = new Gradient();
         gradient.SetKeys(
             new GradientColorKey[] { new GradientColorKey(Color.white, 0.0f), new GradientColorKey(Color.white, 1.0f) },

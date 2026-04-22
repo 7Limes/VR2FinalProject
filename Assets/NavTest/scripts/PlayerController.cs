@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine.InputSystem;
 
 public class PlayerController : MonoBehaviour
 {
@@ -9,34 +10,67 @@ public class PlayerController : MonoBehaviour
     public int numberOfNPCs = 12;
     public Transform npcSpawnCenter;
     public Transform goalPoint;
+    [Tooltip("Space between each racer in the starting grid")]
+    public float spawnSpacing = 2f;
+    [Tooltip("How many racers per row in the starting grid")]
+    public int spawnColumns = 4;
 
     [Header("Appearance Settings")]
-    [Tooltip("Drag your different colored materials here. Make sure you have at least as many materials as regular NPCs!")]
     public List<Material> racerMaterials;
-
-    // This is our "deck of cards" we will draw from and discard
     private List<Material> availableMaterialsPool;
 
     [Header("Obstacle Spawning")]
     public GameObject obstaclePrefab;
     public float dropHeight = 15f;
 
+    [Header("Rolling Physics (applied to all spawned racers)")]
+    [Tooltip("Base rolling force for normal racers")]
+    public float baseRollForce = 14f;
+    [Tooltip("Max velocity magnitude for racers")]
+    public float baseMaxSpeed = 10f;
+    [Tooltip("Champion gets this multiplier on force and max speed")]
+    public float championSpeedMultiplier = 1.25f;
+    [Tooltip("Rigidbody mass for each racer ball")]
+    public float racerMass = 1f;
+    [Tooltip("Rigidbody angular drag (higher = balls stop spinning sooner)")]
+    public float racerAngularDrag = 2f;
+    [Tooltip("Rigidbody linear drag")]
+    public float racerLinearDrag = 0.5f;
+    [Tooltip("Physics material dynamic friction")]
+    public float ballFriction = 0.15f;
+    [Tooltip("Physics material bounciness")]
+    public float ballBounciness = 0.3f;
+
+    // Shared physics material — every racer reuses the same instance instead
+    // of allocating a new one. Cheaper memory and consistent behavior.
+    private PhysicsMaterial sharedBallMaterial;
+
     void Start()
     {
-        // Copy the materials into our temporary pool so we don't delete the originals from the Inspector permanently
         availableMaterialsPool = new List<Material>(racerMaterials);
+
+        sharedBallMaterial = new PhysicsMaterial("BallPhysics_Shared")
+        {
+            dynamicFriction = ballFriction,
+            staticFriction = ballFriction * 1.2f,
+            bounciness = ballBounciness,
+            frictionCombine = PhysicsMaterialCombine.Minimum,
+            bounceCombine = PhysicsMaterialCombine.Average
+        };
 
         SpawnNPCs();
     }
 
     void Update()
     {
-        if (Input.GetMouseButtonDown(0))
+        if (Mouse.current == null) return;
+
+        if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             DropObstacleAtMouse();
         }
 
-        if (Input.GetMouseButtonDown(1))
+        if (Mouse.current.rightButton.wasPressedThisFrame)
         {
             MoveGoalToMouse();
         }
@@ -44,15 +78,27 @@ public class PlayerController : MonoBehaviour
 
     void SpawnNPCs()
     {
+        // Calculate grid offset so the formation is centered on the spawn point
+        int rows = Mathf.CeilToInt((float)numberOfNPCs / spawnColumns);
+        float gridWidth = (spawnColumns - 1) * spawnSpacing;
+        float gridDepth = (rows - 1) * spawnSpacing;
+
         for (int i = 0; i < numberOfNPCs; i++)
         {
-            Vector3 randomOffset = new Vector3(Random.Range(-3f, 3f), 0, Random.Range(-3f, 3f));
-            Vector3 spawnPos = npcSpawnCenter.position + randomOffset;
+            int col = i % spawnColumns;
+            int row = i / spawnColumns;
+
+            // Center the grid on the spawn point
+            Vector3 gridOffset = new Vector3(
+                col * spawnSpacing - gridWidth * 0.5f,
+                0.5f,
+                row * spawnSpacing - gridDepth * 0.5f
+            );
+            Vector3 spawnPos = npcSpawnCenter.position + gridOffset;
 
             GameObject prefabToSpawn;
             bool isChampion = false;
 
-            // Check if it's the Champion
             if (i == 0 && championPrefab != null)
             {
                 prefabToSpawn = championPrefab;
@@ -64,60 +110,141 @@ public class PlayerController : MonoBehaviour
             }
 
             GameObject newNPC = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
-
-            // Set clean names for the Leaderboard
             newNPC.name = isChampion ? "Champion" : "Racer " + i;
 
+            // --- Set up rolling ball physics on the spawned racer ---
+            SetupBallPhysics(newNPC, isChampion);
+
+            // --- Wire up the movement script ---
             NPCMovement movementScript = newNPC.GetComponent<NPCMovement>();
-            if (movementScript != null)
+            if (movementScript == null)
             {
-                movementScript.goal = goalPoint;
+                movementScript = newNPC.AddComponent<NPCMovement>();
             }
 
-            // --- NEW: Assign Unique Random Material ---
-            // We only randomize regular racers so the Champion keeps its special color
+            // Set the initial goal to the first checkpoint so the racer
+            // pathfinds to the right place from frame 1.
+            // RacerProgress will take over goal management from here.
+            Transform initialGoal = goalPoint;
+            if (CheckpointManager.Instance != null
+                && CheckpointManager.Instance.checkpoints.Count > 0)
+            {
+                initialGoal = CheckpointManager.Instance.GetCheckpointTransform(0);
+            }
+            movementScript.goal = initialGoal;
+            movementScript.rollForce = isChampion ? baseRollForce * championSpeedMultiplier : baseRollForce;
+            movementScript.maxSpeed = isChampion ? baseMaxSpeed * championSpeedMultiplier : baseMaxSpeed;
+
+            // --- Wire up checkpoint/lap tracking ---
+            RacerProgress progress = newNPC.GetComponent<RacerProgress>();
+            if (progress == null)
+            {
+                progress = newNPC.AddComponent<RacerProgress>();
+            }
+
+            // --- Wire up UFO-style cart facing + tilt ---
+            CartVisualRotation visualRot = newNPC.GetComponent<CartVisualRotation>();
+            if (visualRot == null)
+            {
+                visualRot = newNPC.AddComponent<CartVisualRotation>();
+            }
+
             if (!isChampion)
             {
                 AssignUniqueMaterial(newNPC);
             }
+            else
+            {
+                // Champion keeps its own material but still needs a
+                // RacerColorAssigner so RacerOutline can read the color
+                RacerColorAssigner colorAssigner = newNPC.GetComponent<RacerColorAssigner>();
+                if (colorAssigner == null)
+                {
+                    colorAssigner = newNPC.AddComponent<RacerColorAssigner>();
+                }
+
+                // Read the champion's existing material from its mesh
+                MeshRenderer championRenderer = newNPC.GetComponentInChildren<MeshRenderer>();
+                if (championRenderer != null && championRenderer.sharedMaterial != null)
+                {
+                    colorAssigner.assignedMaterial = championRenderer.sharedMaterial;
+                }
+
+                // Trigger outline generation
+                RacerOutline outline = newNPC.GetComponent<RacerOutline>();
+                if (outline != null)
+                {
+                    outline.GenerateOutline();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Ensures the racer has a Rigidbody + SphereCollider configured for
+    /// natural rolling ball movement (Monkey Ball style).
+    /// </summary>
+    void SetupBallPhysics(GameObject racer, bool isChampion)
+    {
+        // --- Rigidbody ---
+        Rigidbody rb = racer.GetComponent<Rigidbody>();
+        if (rb == null)
+        {
+            rb = racer.AddComponent<Rigidbody>();
+        }
+
+        rb.mass = racerMass;
+        rb.linearDamping = racerLinearDrag;
+        rb.angularDamping = racerAngularDrag;
+        rb.useGravity = true;
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+
+        // Freeze no axes � we want full rolling freedom
+        rb.constraints = RigidbodyConstraints.None;
+
+        // Reuse the shared physics material — avoids allocating one per racer
+        Collider col = racer.GetComponent<Collider>();
+        if (col != null)
+        {
+            col.sharedMaterial = sharedBallMaterial;
         }
     }
 
     void AssignUniqueMaterial(GameObject npc)
     {
-        // Make sure we still have colors left in the pool
         if (availableMaterialsPool.Count > 0)
         {
-            // Pick a random index from whatever is left
             int randomIndex = Random.Range(0, availableMaterialsPool.Count);
-
-            // Grab the material at that index
             Material selectedMaterial = availableMaterialsPool[randomIndex];
 
-            // Apply it to the capsule's MeshRenderer
-            MeshRenderer renderer = npc.GetComponentInChildren<MeshRenderer>();
-            if (renderer != null)
+            // Use RacerColorAssigner if present, otherwise apply directly
+            RacerColorAssigner colorAssigner = npc.GetComponent<RacerColorAssigner>();
+            if (colorAssigner == null)
             {
-                renderer.material = selectedMaterial;
+                colorAssigner = npc.AddComponent<RacerColorAssigner>();
+            }
+            colorAssigner.ApplyMaterial(selectedMaterial);
+
+            // Trigger outline generation if RacerOutline is on the prefab
+            RacerOutline outline = npc.GetComponent<RacerOutline>();
+            if (outline != null)
+            {
+                outline.GenerateOutline();
             }
 
-            // Discard it from the pool so no one else can draw this color
             availableMaterialsPool.RemoveAt(randomIndex);
-        }
-        else
-        {
-            // If you spawn 12 NPCs but only put 5 materials in the list, it will warn you and keep the default color
-            Debug.LogWarning("Not enough materials in the pool for all NPCs! " + npc.name + " will use the default color.");
         }
     }
 
     void DropObstacleAtMouse()
     {
         if (Camera.main == null) return;
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
 
-        if (Physics.Raycast(ray, out hit, Mathf.Infinity, LayerMask.GetMask("Ground", "Track")))
+        Vector2 mousePos = Mouse.current.position.ReadValue();
+        Ray ray = Camera.main.ScreenPointToRay(mousePos);
+
+        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, LayerMask.GetMask("Ground", "Track")))
         {
             Vector3 spawnPosition = hit.point + (Vector3.up * dropHeight);
             Instantiate(obstaclePrefab, spawnPosition, Random.rotation);
@@ -127,10 +254,11 @@ public class PlayerController : MonoBehaviour
     void MoveGoalToMouse()
     {
         if (Camera.main == null) return;
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
 
-        if (Physics.Raycast(ray, out hit, Mathf.Infinity, LayerMask.GetMask("Ground", "Track")))
+        Vector2 mousePos = Mouse.current.position.ReadValue();
+        Ray ray = Camera.main.ScreenPointToRay(mousePos);
+
+        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, LayerMask.GetMask("Ground", "Track")))
         {
             goalPoint.position = hit.point;
         }
