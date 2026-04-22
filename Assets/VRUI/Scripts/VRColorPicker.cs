@@ -13,9 +13,9 @@ public class VRColorPicker : MonoBehaviour
 
     public void UpdateColor()
     {
-        float hue = hueSlider.getValue();
-        float saturation = saturationSlider.getValue();
-        float value = valueSlider.getValue();
+        float hue = hueSlider.GetValue();
+        float saturation = saturationSlider.GetValue();
+        float value = valueSlider.GetValue();
 
         currentColor = Color.HSVToRGB(hue, saturation, value);
 
@@ -28,6 +28,21 @@ public class VRColorPicker : MonoBehaviour
     public Color getColor()
     {
         return currentColor;
+    }
+
+    public VRSlider getHueSlider()
+    {
+        return hueSlider;
+    }
+
+    public VRSlider getSaturationSlider()
+    {
+        return saturationSlider;
+    }
+
+    public VRSlider getValueSlider()
+    {
+        return valueSlider;
     }
 
     private void Start()
