@@ -220,8 +220,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5477942262934995066}
-  - {fileID: 5890974512621700538}
-  - {fileID: 529113385676536919}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &2419990470844546987
@@ -312,7 +310,7 @@ NavMeshAgent:
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
-  m_StoppingDistance: 0
+  m_StoppingDistance: 20
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
@@ -447,11 +445,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cartPath: character
-  yawOffset: 180
-  maxTiltAngle: 20
+  yawOffset: -180
+  maxTiltAngle: 15
   referenceSpeed: 0
-  yawSmoothTime: 0.12
-  tiltSmoothTime: 0.2
+  yawSmoothTime: 0.369
+  tiltSmoothTime: 0.563
   minMoveSpeed: 0.3
   debugLogging: 0
 --- !u!1 &1786883320917218526
@@ -1024,14 +1022,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3946703909530838794}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.589, z: -0.084}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.5890007, z: -0.083999634}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 122265521582921153}
   - {fileID: 8409753727023052108}
-  m_Father: {fileID: 6789673991941332488}
+  m_Father: {fileID: 5477942262934995066}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4002524211732052464
 GameObject:
@@ -1311,6 +1309,8 @@ Transform:
   - {fileID: 5274895191069863094}
   - {fileID: 8439693918361720587}
   - {fileID: 2815264306696420869}
+  - {fileID: 5890974512621700538}
+  - {fileID: 529113385676536919}
   m_Father: {fileID: 6789673991941332488}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5177604594444213535
@@ -1812,12 +1812,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7954899243510962107}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 6.1, y: 0.0761122, z: 6.1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 6789673991941332488}
+  m_Father: {fileID: 5477942262934995066}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &7084737009452096120
 MeshFilter:
@@ -1902,12 +1902,12 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7954899243510962107}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4719d909b5f6802418117777cb9611f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  outlineTargetPath: character/Cylinder
+  outlineTargetPath: character/outline
   outlineThickness: 0.4
   outlineMaterial: {fileID: 0}
   outlineRenderQueue: 2999

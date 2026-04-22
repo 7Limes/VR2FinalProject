@@ -163,7 +163,7 @@ public class CartVisualRotation : MonoBehaviour
             : (npcMovement != null && npcMovement.maxSpeed > 0.01f ? npcMovement.maxSpeed : 10f);
 
         float targetPitch = 0f;
-        float targetRoll  = 0f;
+        float targetRoll = 0f;
 
         if (physVel.sqrMagnitude > minMoveSpeed * minMoveSpeed)
         {
@@ -172,17 +172,17 @@ public class CartVisualRotation : MonoBehaviour
             Vector3 localVel = Quaternion.Inverse(motionYaw) * new Vector3(physVel.x, 0f, physVel.z);
 
             float forwardRatio = Mathf.Clamp(localVel.z / refSpeed, -1f, 1f);
-            float sideRatio    = Mathf.Clamp(localVel.x / refSpeed, -1f, 1f);
+            float sideRatio = Mathf.Clamp(localVel.x / refSpeed, -1f, 1f);
 
             // +X Euler = nose tilts forward (down) in Unity.
             // +Z Euler = left side dips (right banking) — negate for "lean into turn".
-            targetPitch = forwardRatio * maxTiltAngle;   // forward motion → nose dips forward
-            targetRoll  = -sideRatio   * maxTiltAngle;   // rightward motion → left side dips (bank right)
+            targetPitch = -forwardRatio * maxTiltAngle;   // forward motion → nose dips forward
+            targetRoll = -sideRatio * maxTiltAngle;   // rightward motion → left side dips (bank right)
         }
 
         float tiltT = 1f - Mathf.Exp(-Time.deltaTime / Mathf.Max(0.001f, tiltSmoothTime));
         currentPitch = Mathf.Lerp(currentPitch, targetPitch, tiltT);
-        currentRoll  = Mathf.Lerp(currentRoll,  targetRoll,  tiltT);
+        currentRoll = Mathf.Lerp(currentRoll, targetRoll, tiltT);
 
         if (debugLogging)
         {
@@ -204,7 +204,7 @@ public class CartVisualRotation : MonoBehaviour
     {
         float tiltT = 1f - Mathf.Exp(-Time.deltaTime / Mathf.Max(0.001f, tiltSmoothTime));
         currentPitch = Mathf.Lerp(currentPitch, 0f, tiltT);
-        currentRoll  = Mathf.Lerp(currentRoll,  0f, tiltT);
+        currentRoll = Mathf.Lerp(currentRoll, 0f, tiltT);
     }
 
     void ApplyRotation()
