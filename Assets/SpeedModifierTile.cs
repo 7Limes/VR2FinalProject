@@ -16,10 +16,10 @@ public class SpeedModifierTile : MonoBehaviour
         if (npc != null && !originalSpeeds.ContainsKey(npc))
         {
             // Store the speed they had before entering the tile
-            originalSpeeds[npc] = npc.moveSpeed;
+            originalSpeeds[npc] = npc.maxSpeed;
 
             // Apply the multiplier
-            npc.moveSpeed *= speedMultiplier;
+            npc.maxSpeed *= speedMultiplier;
         }
     }
 
@@ -30,7 +30,7 @@ public class SpeedModifierTile : MonoBehaviour
         if (npc != null && originalSpeeds.ContainsKey(npc))
         {
             // Reset to the speed they had before entering
-            npc.moveSpeed = originalSpeeds[npc];
+            npc.maxSpeed = originalSpeeds[npc];
 
             // Clean up the dictionary
             originalSpeeds.Remove(npc);
