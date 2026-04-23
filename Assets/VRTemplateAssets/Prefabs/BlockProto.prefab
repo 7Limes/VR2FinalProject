@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2510646222695667975}
   - component: {fileID: 6020354619272229602}
   - component: {fileID: 1839832024616762605}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: BlockProto
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -167,7 +167,7 @@ MonoBehaviour:
   dodgeForce: 15
   obstacleLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   slopeAssist: 4
   progressCheckInterval: 2
   minimumProgressDistance: 1.5
@@ -213,7 +213,7 @@ LineRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6867665592549229238}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -319,7 +319,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6867665592549229238}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c0fa505a7f05b65478a13e856372df0a, type: 3}
   m_Name: 
@@ -327,6 +327,7 @@ MonoBehaviour:
   smoothingIterations: 10
   heightOffset: 2
   maxDrawDistance: 100
+  updateInterval: 0.05
 --- !u!135 &-3643559016059166737
 SphereCollider:
   m_ObjectHideFlags: 0
