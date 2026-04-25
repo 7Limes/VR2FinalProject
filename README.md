@@ -26,4 +26,4 @@ Jake - Level design, gameplay design, track design and layout
 
 Miles - Made the physical buttons and sliders, the color picking UI, and combined the functionality from Camden and Jake's scenes together
 
-Camden - Cart ufo model, the racer navigation system, and the onscreen racing ui elements
+Camden - Cart UFO model, the racer navigation system, and the onscreen racing UI elements
