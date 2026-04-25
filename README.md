@@ -22,7 +22,7 @@ Racers racing!
 
 Pixit - Character and clothing models, ray gun model, track item textures
 
-Jake - Level design, track design
+Jake - Level design, gameplay design, track design and layout 
 
 Miles - Made the physical buttons and sliders, the color picking UI, and combined the functionality from Camden and Jake's scenes together
 
